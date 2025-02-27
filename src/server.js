@@ -22,6 +22,7 @@ app.set('view engine', 'handlebars');
 app.set('views', path.join(__dirname, 'src/views'));
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'src/public')));
 app.use(API_PRODUCTS, productsRouter);
 app.use(API_CARTS, cartsRouter);
 
@@ -30,8 +31,27 @@ app.get('/', async (req, res) => {
   res.render('shop', { products });
 });
 
+app.get('/live', async (req, res) => {
+  const products = await db.read('products');
+  res.render('liveProducts', { products });
+});
+
 io.on('connection', (socket) => {
   console.log('Cliente conectado');
+  socket.on('addProduct', async (product) => {
+    const products = await db.read('products');
+    const id = Date.now().toString();
+    const newProduct = { id, ...product };
+    products.push(newProduct);
+    await db.write('products', products);
+    io.emit('productAdded', newProduct);
+  });
+  socket.on('deleteProduct', async (id) => {
+    let products = await db.read('products');
+    products = products.filter(p => p.id !== id);
+    await db.write('products', products);
+    io.emit('productRemoved', id);
+  });
 });
 
 app.use((err, req, res, next) => {
