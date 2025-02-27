@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../config/db');
+const io = require('../../server').io;
 const router = express.Router();
 
 router.get('/', async (req, res) => {
@@ -51,9 +52,10 @@ router.post('/', async (req, res) => {
     };
     products.push(newProduct);
     await db.write('products', products);
+    io.emit('productAdded', newProduct);
     res.status(201).json(newProduct);
   } catch (error) {
-    console.error('Error al escribir en el archivo de productos:', error);
+    console.error('Error al agregar el producto:', error);
     res.status(500).send('Error al agregar el producto');
   }
 });
@@ -73,7 +75,7 @@ router.put('/:pid', async (req, res) => {
       return res.status(404).send('Producto no encontrado');
     }
 
-    const updatedProduct = {
+    products[productIndex] = {
       ...products[productIndex],
       title: title || products[productIndex].title,
       description: description || products[productIndex].description,
@@ -83,10 +85,8 @@ router.put('/:pid', async (req, res) => {
       category: category || products[productIndex].category,
       thumbnails: thumbnails || products[productIndex].thumbnails,
     };
-
-    products[productIndex] = updatedProduct;
     await db.write('products', products);
-    res.json(updatedProduct);
+    res.json(products[productIndex]);
   } catch (error) {
     console.error('Error al actualizar el producto:', error);
     res.status(500).send('Error al actualizar el producto');
@@ -98,12 +98,9 @@ router.delete('/:pid', async (req, res) => {
 
   try {
     let products = await db.read('products');
-    const productExists = products.some(p => p.id === pid);
-    if (!productExists) {
-      return res.status(404).send('Producto no encontrado');
-    }
-    products = products.filter(p => p.id !== pid);
+    products = products.filter(p => p.id === pid);
     await db.write('products', products);
+    io.emit('productRemoved', pid);
     res.status(204).send();
   } catch (error) {
     console.error('Error al eliminar el producto:', error);
