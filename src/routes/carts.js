@@ -1,16 +1,15 @@
 
 const express = require('express');
-const fs = require('fs-extra');
+const db = require('../config/db');
 const router = express.Router();
-const cartsFilePath = './carrito.json';
 
 router.post('/', async (req, res) => {
   try {
-    const carts = await fs.readJson(cartsFilePath);
+    const carts = await db.read('carts');
     const id = Date.now().toString();
     const newCart = { id, products: [] };
     carts.push(newCart);
-    await fs.writeJson(cartsFilePath, carts);
+    await db.write('carts', carts);
     res.status(201).json(newCart);
   } catch (error) {
     console.error('Error al crear el carrito:', error);
@@ -21,7 +20,7 @@ router.post('/', async (req, res) => {
 router.get('/:cid', async (req, res) => {
   const { cid } = req.params;
   try {
-    const carts = await fs.readJson(cartsFilePath);
+    const carts = await db.read('carts');
     const cart = carts.find(c => c.id === cid);
     if (cart) {
       res.json(cart.products);
@@ -37,7 +36,7 @@ router.get('/:cid', async (req, res) => {
 router.post('/:cid/product/:pid', async (req, res) => {
   const { cid, pid } = req.params;
   try {
-    const carts = await fs.readJson(cartsFilePath);
+    const carts = await db.read('carts');
     const cart = carts.find(c => c.id === cid);
     if (!cart) {
       return res.status(404).send('Carrito no encontrado');
@@ -50,7 +49,7 @@ router.post('/:cid/product/:pid', async (req, res) => {
       cart.products.push({ product: pid, quantity: 1 });
     }
 
-    await fs.writeJson(cartsFilePath, carts);
+    await db.write('carts', carts);
     res.status(201).json(cart.products);
   } catch (error) {
     console.error('Error al agregar el producto al carrito:', error);

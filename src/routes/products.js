@@ -1,12 +1,11 @@
 const express = require('express');
-const fs = require('fs-extra');
+const db = require('../config/db');
 const router = express.Router();
-const productsFilePath = './productos.json';
 
 router.get('/', async (req, res) => {
   const { limit } = req.query;
   try {
-    const products = await fs.readJson(productsFilePath);
+    const products = await db.read('products');
     const limitedProducts = limit ? products.slice(0, parseInt(limit)) : products;
     res.json(limitedProducts);
   } catch (error) {
@@ -18,7 +17,7 @@ router.get('/', async (req, res) => {
 router.get('/:pid', async (req, res) => {
   const { pid } = req.params;
   try {
-    const products = await fs.readJson(productsFilePath);
+    const products = await db.read('products');
     const product = products.find(p => p.id === pid);
     if (product) {
       res.json(product);
@@ -38,7 +37,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const products = await fs.readJson(productsFilePath);
+    const products = await db.read('products');
     const id = Date.now().toString();
     const newProduct = {
       id,
@@ -51,7 +50,7 @@ router.post('/', async (req, res) => {
       thumbnails: thumbnails || []
     };
     products.push(newProduct);
-    await fs.writeJson(productsFilePath, products);
+    await db.write('products', products);
     res.status(201).json(newProduct);
   } catch (error) {
     console.error('Error al escribir en el archivo de productos:', error);
@@ -68,7 +67,7 @@ router.put('/:pid', async (req, res) => {
   }
 
   try {
-    const products = await fs.readJson(productsFilePath);
+    const products = await db.read('products');
     const productIndex = products.findIndex(p => p.id === pid);
     if (productIndex === -1) {
       return res.status(404).send('Producto no encontrado');
@@ -86,7 +85,7 @@ router.put('/:pid', async (req, res) => {
     };
 
     products[productIndex] = updatedProduct;
-    await fs.writeJson(productsFilePath, products);
+    await db.write('products', products);
     res.json(updatedProduct);
   } catch (error) {
     console.error('Error al actualizar el producto:', error);
@@ -98,13 +97,13 @@ router.delete('/:pid', async (req, res) => {
   const { pid } = req.params;
 
   try {
-    let products = await fs.readJson(productsFilePath);
+    let products = await db.read('products');
     const productExists = products.some(p => p.id === pid);
     if (!productExists) {
       return res.status(404).send('Producto no encontrado');
     }
     products = products.filter(p => p.id !== pid);
-    await fs.writeJson(productsFilePath, products);
+    await db.write('products', products);
     res.status(204).send();
   } catch (error) {
     console.error('Error al eliminar el producto:', error);
