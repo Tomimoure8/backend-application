@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('./src/config/db');
 const productsRouter = require('./routes/products');
 const cartsRouter = require('./routes/carts');
+const viewsRouter = require('./src/routes/views/pages');
 
 const app = express();
 const PORT = 8080;
@@ -25,11 +26,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'src/public')));
 app.use(API_PRODUCTS, productsRouter);
 app.use(API_CARTS, cartsRouter);
-
-app.get('/', async (req, res) => {
-  const products = await db.read('products');
-  res.render('shop', { products });
-});
+app.use('/', viewsRouter);
 
 app.get('/live', async (req, res) => {
   const products = await db.read('products');
