@@ -1,32 +1,62 @@
 const express = require('express');
-const db = require('../config/db');
+const Product = require('../models/Product');
 const io = require('../../server').io;
 const router = express.Router();
 
+const getPaginationLink = (limit, page, sort, query, direction) => {
+  return `/api/products?limit=${limit}&page=${page + direction}&sort=${sort || ''}&query=${query || ''}`;
+};
+
 router.get('/', async (req, res) => {
-  const { limit } = req.query;
+  const { limit = 10, page = 1, sort, query } = req.query;
   try {
-    const products = await db.read('products');
-    const limitedProducts = limit ? products.slice(0, parseInt(limit)) : products;
-    res.json(limitedProducts);
+    let filters = {};
+    if (query) {
+      if (query === 'true' || query === 'false') {
+        filters.status = query === 'true';
+      } else {
+        filters.category = query;
+      }
+    }
+
+    const options = {
+      limit: parseInt(limit),
+      page: parseInt(page),
+      sort: sort ? { price: sort === 'asc' ? 1 : -1 } : {},
+    };
+
+    const result = await Product.paginate(filters, options);
+
+    const response = {
+      status: 'success',
+      payload: result.docs,
+      totalPages: result.totalPages,
+      prevPage: result.hasPrevPage ? result.page - 1 : null,
+      nextPage: result.hasNextPage ? result.page + 1 : null,
+      page: result.page,
+      hasPrevPage: result.hasPrevPage,
+      hasNextPage: result.hasNextPage,
+      prevLink: result.hasPrevPage ? getPaginationLink(limit, result.page, sort, query, -1) : null,
+      nextLink: result.hasNextPage ? getPaginationLink(limit, result.page, sort, query, 1) : null,
+    };
+
+    res.json(response);
   } catch (error) {
-    console.error('Error al leer el archivo de productos:', error);
-    res.status(500).send('Error al obtener los productos');
+    console.error('Error al obtener productos:', error);
+    res.status(500).send('Error al obtener productos');
   }
 });
 
 router.get('/:pid', async (req, res) => {
   const { pid } = req.params;
   try {
-    const products = await db.read('products');
-    const product = products.find(p => p.id === pid);
+    const product = await Product.findById(pid);
     if (product) {
       res.json(product);
     } else {
       res.status(404).send('Producto no encontrado');
     }
   } catch (error) {
-    console.error('Error al leer el archivo de productos:', error);
     res.status(500).send('Error al obtener el producto');
   }
 });
@@ -38,20 +68,15 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const products = await db.read('products');
-    const id = Date.now().toString();
-    const newProduct = {
-      id,
+    const newProduct = new Product ({
       title,
       description,
       code,
       price,
       stock,
       category,
-      thumbnails: thumbnails || []
-    };
-    products.push(newProduct);
-    await db.write('products', products);
+      thumbnails });
+    await newProduct.save();
     io.emit('productAdded', newProduct);
     res.status(201).json(newProduct);
   } catch (error) {
@@ -62,33 +87,12 @@ router.post('/', async (req, res) => {
 
 router.put('/:pid', async (req, res) => {
   const { pid } = req.params;
-  const { title, description, code, price, stock, category, thumbnails } = req.body;
-
-  if (!title && !description && !code && !price && !stock && !category && !thumbnails) {
-    return res.status(400).send('No se han proporcionado campos para actualizar');
-  }
-
+  const updates = req.body;
   try {
-    const products = await db.read('products');
-    const productIndex = products.findIndex(p => p.id === pid);
-    if (productIndex === -1) {
-      return res.status(404).send('Producto no encontrado');
-    }
-
-    products[productIndex] = {
-      ...products[productIndex],
-      title: title || products[productIndex].title,
-      description: description || products[productIndex].description,
-      code: code || products[productIndex].code,
-      price: price || products[productIndex].price,
-      stock: stock || products[productIndex].stock,
-      category: category || products[productIndex].category,
-      thumbnails: thumbnails || products[productIndex].thumbnails,
-    };
-    await db.write('products', products);
-    res.json(products[productIndex]);
+    const product = await Product.findByIdAndUpdate(pid, updates, { new: true });
+    if (product) res.json(product);
+    else res.status(404).send('Producto no encontrado');
   } catch (error) {
-    console.error('Error al actualizar el producto:', error);
     res.status(500).send('Error al actualizar el producto');
   }
 });
@@ -97,13 +101,10 @@ router.delete('/:pid', async (req, res) => {
   const { pid } = req.params;
 
   try {
-    let products = await db.read('products');
-    products = products.filter(p => p.id === pid);
-    await db.write('products', products);
+    await Product.findByIdAndDelete(pid);
     io.emit('productRemoved', pid);
     res.status(204).send();
   } catch (error) {
-    console.error('Error al eliminar el producto:', error);
     res.status(500).send('Error al eliminar el producto');
   }
 });
