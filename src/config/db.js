@@ -1,26 +1,16 @@
-const fs = require('fs-extra');
-const path = require('path');
+const mongoose = require('mongoose');
 
-const cartsPath = path.join(__dirname, '../../carrito.json');
-const productsPath = path.join(__dirname, '../../productos.json');
-
-const db = {
-    async init() {
-        await fs.ensureFile(cartsPath);
-        await fs.ensureFile(productsPath);
-        if (!(await fs.readJson(cartsPath).catch(() => false))) {
-            await fs.writeJson(cartsPath, []);
-        }
-        if (!(await fs.readJson(productsPath).catch(() => false))) {
-            await fs.writeJson(productsPath, []);
-        }
-    },
-    async read(file) {
-        return await fs.readJson(file === 'carts' ? cartsPath : productsPath);
-    },
-    async write(file, data) {
-        await fs.writeJson(file === 'carts' ? cartsPath : productsPath, data, { spaces: 2 });
+const connectDB = async () => {
+    try {
+        await mongoose.connect('mongodb://localhost:27017/ecommerce', {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        });
+        console.log('Conectado a MongoDB');
+    } catch (error) {
+        console.error('Error al conectar a MongoDB:', error);
+        process.exit(1);
     }
 };
 
-module.exports = db;
+module.exports = connectDB;
