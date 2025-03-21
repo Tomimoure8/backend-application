@@ -14,7 +14,7 @@ function removeProduct(id) {
 
 socket.on('productAdded', (product) => {
     const list = document.getElementById('products-live');
-    list.innerHTML += `<li data-id="${product.id}">${product.title} - $${product.price} <button onclick="removeProduct('${product.id}')">Borrar</button></li>`;
+    list.innerHTML += `<li data-id="${product._id}">${product.title} - $${product.price} <button onclick="removeProduct('${product._id}')">Borrar</button></li>`;
 });
 
 socket.on('productRemoved', (id) => {
